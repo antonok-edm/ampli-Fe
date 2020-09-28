@@ -1443,6 +1443,8 @@ dependencies = [
 [[package]]
 name = "vst_window"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b591a40dfec935aa6a70d64d93651bddafbf1ebc3719e3049f055dfe89f82d8"
 dependencies = [
  "cocoa",
  "gfx-backend-vulkan",
