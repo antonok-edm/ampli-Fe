@@ -74,8 +74,8 @@ impl InterfaceState {
             }
             WindowEvent::MouseClick(button) => {
                 let (x, y) = self.cursor_pos;
-                if (x as usize - KNOB_CENTER_X).pow(2) + (y as usize - KNOB_CENTER_Y).pow(2)
-                    < KNOB_RADIUS.pow(2)
+                if (x - KNOB_CENTER_X as isize).pow(2) + (y - KNOB_CENTER_Y as isize).pow(2)
+                    < KNOB_RADIUS.pow(2) as isize
                 {
                     if button == vst_window::MouseButton::Left {
                         self.drag_behavior = Some(DragBehavior::TurnAmplitudeKnob {
