@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create_release:
+    name: Create release
+    runs-on: macos-latest
+    outputs:
+      id: ${{ steps.draft_release.outputs.id }}
+      html_url: ${{ steps.draft_release.outputs.html_url }}
+      upload_url: ${{ steps.draft_release.outputs.upload_url }}
+    steps:
+      - name: Draft release
+        id: draft_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: true
+
+  build_release:
+    name: Build release
+    needs: create_release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            name: linux
+            arch: x86-64
+            asset_path: ./target/release/libampli_fe.so
+            release_ext: .so
+          - os: macos-latest
+            name: macos
+            arch: x86-64
+            asset_path: ./ampli-Fe.zip
+            release_ext: .zip
+          - os: windows-latest
+            name: windows
+            arch: x86-64
+            asset_path: ./target/release/ampli_fe.dll
+            release_ext: .dll
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - name: Bundle and zip macOS plugin
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          ./bundle_macos.sh
+          zip -r ampli-Fe.zip ampli-Fe.vst
+      - name: Upload binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ matrix.asset_path }}
+          asset_name: ampli-Fe_${{ matrix.name }}-${{ matrix.arch }}${{ matrix.release_ext }}
+          asset_content_type: application/octet-stream
