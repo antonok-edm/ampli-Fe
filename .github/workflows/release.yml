@@ -40,17 +40,17 @@ jobs:
             name: linux
             arch: x86-64
             asset_path: ./target/release/libampli_fe.so
-            release_ext: .so
+            plugin_ext: .so
           - os: macos-latest
             name: macos
             arch: x86-64
-            asset_path: ./ampli-Fe.zip
-            release_ext: .zip
+            asset_path: ./ampli-Fe.vst
+            plugin_ext: .vst
           - os: windows-latest
             name: windows
             arch: x86-64
             asset_path: ./target/release/ampli_fe.dll
-            release_ext: .dll
+            plugin_ext: .dll
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -61,18 +61,24 @@ jobs:
         with:
           command: build
           args: --release
-      - name: Bundle and zip macOS plugin
+      - name: Bundle macOS plugin
         if: matrix.os == 'macos-latest'
         shell: bash
+        run: ./bundle_macos.sh
+      - name: Move Linux and Windows plugins
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'windows-latest'
+        shell: bash
+        run: mv ${{ matrix.asset_path }} ./ampli-Fe${{ matrix.plugin_ext }}
+      - name: Create plugin zip archive
+        shell: bash
         run: |
-          ./bundle_macos.sh
-          zip -r ampli-Fe.zip ampli-Fe.vst
-      - name: Upload binary
+          zip -r ampli-Fe.zip ./ampli-Fe${{ matrix.plugin_ext }}
+      - name: Upload plugin archive
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ${{ matrix.asset_path }}
-          asset_name: ampli-Fe_${{ matrix.name }}-${{ matrix.arch }}${{ matrix.release_ext }}
+          asset_path: ./ampli-Fe.zip
+          asset_name: ampli-Fe_${{ matrix.name }}-${{ matrix.arch }}.zip
           asset_content_type: application/octet-stream
