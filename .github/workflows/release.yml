@@ -54,6 +54,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Install zip on Windows
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: choco install zip
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
