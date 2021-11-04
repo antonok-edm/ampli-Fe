@@ -1,5 +1,9 @@
 # ampli-Fe
 
+<a href="https://studiorack.github.io/studiorack-site/plugins/studiorack_ampli-fe_ampli-fe" alt="Download on StudioRack">
+    <img src="https://img.shields.io/badge/StudioRack-v0.1.0-brightgreen?style=flat" />
+</a>
+
 ampli-Fe is a fully cross-platform VST2 plugin written in Rust.
 It works on Linux, macOS, Windows, without any conditionally compiled code.
 
