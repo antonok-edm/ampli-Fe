@@ -21,7 +21,7 @@ pub(super) struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     multisampled_framebuffer: wgpu::TextureView,
-    swap_chain: wgpu::SwapChain,
+    surface: wgpu::Surface,
 
     text_renderer: GlyphBrush<()>,
     /// Required by `wgpu_glyph`
@@ -92,7 +92,7 @@ static SCALE_MOVE_KNOB_TRANSFORM: Lazy<Matrix4<f32>> = Lazy::new(|| {
 impl Renderer {
     /// Creates a new `Renderer` by initializing the GPU to prepare it for rendering.
     pub fn new<W: raw_window_handle::HasRawWindowHandle>(handle: W) -> Self {
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
 
         // Acquire the window as a surface to be rendered on.
         // This is the only unsafe code in the plugin; it is only required to satisfy the
@@ -141,7 +141,7 @@ impl Renderer {
                 // vertex shader.
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -153,7 +153,7 @@ impl Renderer {
                 // appearance of a particular set of geometry in the fragment shader.
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
@@ -165,7 +165,7 @@ impl Renderer {
                 // the texture in the fragment shader.
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler {
                         comparison: false,
                         filtering: true,
@@ -176,19 +176,18 @@ impl Renderer {
         });
 
         let render_format = wgpu::TextureFormat::Bgra8Unorm;
-        let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: render_format,
             width: SIZE_X as u32,
             height: SIZE_Y as u32,
             present_mode: wgpu::PresentMode::Mailbox,
         };
-
-        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
+        surface.configure(&device, &config);
 
         // A multisampled framebuffer is used for anti-aliasing.
         let multisampled_framebuffer =
-            create_multisampled_framebuffer(&device, &sc_desc, MSAA_SAMPLES);
+            create_multisampled_framebuffer(&device, &config, MSAA_SAMPLES);
 
         // The graphics pipeline specifies what behavior to use when rendering to the screen.
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -204,7 +203,7 @@ impl Renderer {
                 entry_point: "main",
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::InputStepMode::Vertex,
+                    step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x2],
                 }],
             },
@@ -212,7 +211,7 @@ impl Renderer {
                 module: &fs_module,
                 entry_point: "main",
                 targets: &[wgpu::ColorTargetState {
-                    format: sc_desc.format,
+                    format: config.format,
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent {
                             src_factor: wgpu::BlendFactor::SrcAlpha,
@@ -225,7 +224,7 @@ impl Renderer {
                             operation: wgpu::BlendOperation::Add,
                         },
                     }),
-                    write_mask: wgpu::ColorWrite::ALL,
+                    write_mask: wgpu::ColorWrites::ALL,
                 }],
             }),
             primitive: wgpu::PrimitiveState {
@@ -265,12 +264,12 @@ impl Renderer {
                     Vertex::new(1., -1., 1., 1.),
                 ]
                 .as_bytes(),
-                usage: wgpu::BufferUsage::VERTEX,
+                usage: wgpu::BufferUsages::VERTEX,
             });
         let rectangle_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: &[0u32, 1, 2, 2, 3, 0].as_bytes(),
-            usage: wgpu::BufferUsage::INDEX,
+            usage: wgpu::BufferUsages::INDEX,
         });
 
         // Different bind groups for the background and pointer allow them to be rendered with a
@@ -303,7 +302,7 @@ impl Renderer {
             device,
             queue,
             multisampled_framebuffer,
-            swap_chain,
+            surface,
 
             text_renderer,
             local_pool: futures::executor::LocalPool::new(),
@@ -322,7 +321,7 @@ impl Renderer {
 
     /// Render a single frame of the given interface state to the screen.
     pub fn draw_frame(&mut self, state: &super::state::InterfaceState) {
-        if let Ok(frame) = self.swap_chain.get_current_frame() {
+        if let Ok(frame) = self.surface.get_current_frame() {
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -340,10 +339,12 @@ impl Renderer {
                     data.as_bytes(),
                 );
 
+                let view = frame.output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
                 {
                     let mut rpass = Self::start_renderpass(
                         &mut encoder,
-                        &frame.output.view,
+                        &view,
                         &self.multisampled_framebuffer,
                     );
                     rpass.set_pipeline(&self.pipeline);
@@ -386,7 +387,7 @@ impl Renderer {
                         &self.device,
                         &mut self.staging_belt,
                         &mut encoder,
-                        &frame.output.view,
+                        &view,
                         SIZE_X as u32,
                         SIZE_Y as u32,
                     )
@@ -445,7 +446,7 @@ fn make_bind_group(
             transform: initial_transform.into(),
         }
         .as_bytes(),
-        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
     let decoder = png::Decoder::new(png_image);
@@ -465,16 +466,12 @@ fn make_bind_group(
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: wgpu::TextureFormat::Rgba8Unorm,
-        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
     });
 
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
     queue.write_texture(
-        wgpu::ImageCopyTexture {
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-        },
+        texture.as_image_copy(),
         &image_data,
         wgpu::ImageDataLayout {
             offset: 0,
@@ -510,7 +507,7 @@ fn make_bind_group(
 /// surface, producing a more smooth anti-aliased appearance.
 fn create_multisampled_framebuffer(
     device: &wgpu::Device,
-    sc_desc: &wgpu::SwapChainDescriptor,
+    sc_desc: &wgpu::SurfaceConfiguration,
     sample_count: u32,
 ) -> wgpu::TextureView {
     let multisampled_texture_extent = wgpu::Extent3d {
@@ -525,7 +522,7 @@ fn create_multisampled_framebuffer(
         sample_count,
         dimension: wgpu::TextureDimension::D2,
         format: sc_desc.format,
-        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
     };
 
     device
