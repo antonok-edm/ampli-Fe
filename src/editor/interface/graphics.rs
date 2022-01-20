@@ -105,6 +105,7 @@ impl Renderer {
             let adapter = instance
                 .request_adapter(&wgpu::RequestAdapterOptions {
                     power_preference: wgpu::PowerPreference::HighPerformance,
+                    force_fallback_adapter: false,
                     compatible_surface: Some(&surface),
                 })
                 .await
@@ -321,7 +322,7 @@ impl Renderer {
 
     /// Render a single frame of the given interface state to the screen.
     pub fn draw_frame(&mut self, state: &super::state::InterfaceState) {
-        if let Ok(frame) = self.surface.get_current_frame() {
+        if let Ok(frame) = self.surface.get_current_texture() {
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -339,7 +340,7 @@ impl Renderer {
                     data.as_bytes(),
                 );
 
-                let view = frame.output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
                 {
                     let mut rpass = Self::start_renderpass(
@@ -402,6 +403,8 @@ impl Renderer {
                 .spawn(self.staging_belt.recall())
                 .expect("Recall staging belt");
             self.local_pool.run_until_stalled();
+
+            frame.present();
         }
     }
 

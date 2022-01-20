@@ -17,8 +17,8 @@ crate-type = ["cdylib"]
 vst = "^ 0.2"
 vst_window = "^ 0.2.0"
 once_cell = "^ 1.4"
-wgpu = { version = "^ 0.10", features = ["spirv"] }
-wgpu_glyph = "^ 0.14"
+wgpu = { version = "^ 0.11", features = ["spirv"] }
+wgpu_glyph = "^ 0.15"
 raw-window-handle = "^ 0.3"
 zerocopy = "^ 0.3"
 cgmath = "^ 0.17"
