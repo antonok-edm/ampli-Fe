@@ -167,10 +167,7 @@ impl Renderer {
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
             ],
@@ -240,6 +237,7 @@ impl Renderer {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            multiview: None,
         });
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
