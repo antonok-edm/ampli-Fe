@@ -205,7 +205,7 @@ impl Renderer {
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float4, 1 => Float2],
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x2],
                 }],
             },
             fragment: Some(wgpu::FragmentState {
@@ -213,23 +213,25 @@ impl Renderer {
                 entry_point: "main",
                 targets: &[wgpu::ColorTargetState {
                     format: sc_desc.format,
-                    color_blend: wgpu::BlendState {
-                        src_factor: wgpu::BlendFactor::SrcAlpha,
-                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        operation: wgpu::BlendOperation::Add,
-                    },
-                    alpha_blend: wgpu::BlendState {
-                        src_factor: wgpu::BlendFactor::One,
-                        dst_factor: wgpu::BlendFactor::One,
-                        operation: wgpu::BlendOperation::Add,
-                    },
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
                     write_mask: wgpu::ColorWrite::ALL,
                 }],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
+                cull_mode: Some(wgpu::Face::Back),
                 ..Default::default()
             },
             depth_stencil: None,
@@ -409,8 +411,8 @@ impl Renderer {
         view: &'a wgpu::TextureView,
         multisampled_framebuffer: &'a wgpu::TextureView,
     ) -> wgpu::RenderPass<'a> {
-        let rpass_color_attachment = wgpu::RenderPassColorAttachmentDescriptor {
-            attachment: multisampled_framebuffer,
+        let rpass_color_attachment = wgpu::RenderPassColorAttachment {
+            view: multisampled_framebuffer,
             resolve_target: Some(view),
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -454,7 +456,7 @@ fn make_bind_group(
     let texture_extent = wgpu::Extent3d {
         width: info.width,
         height: info.height,
-        depth: 1,
+        depth_or_array_layers: 1,
     };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: None,
@@ -468,16 +470,16 @@ fn make_bind_group(
 
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
     queue.write_texture(
-        wgpu::TextureCopyView {
+        wgpu::ImageCopyTexture {
             texture: &texture,
             mip_level: 0,
             origin: wgpu::Origin3d::ZERO,
         },
         &image_data,
-        wgpu::TextureDataLayout {
+        wgpu::ImageDataLayout {
             offset: 0,
-            bytes_per_row: 4 * info.width,
-            rows_per_image: 0,
+            bytes_per_row: Some(std::num::NonZeroU32::new(4 * info.width).unwrap()),
+            rows_per_image: None,
         },
         texture_extent,
     );
@@ -514,7 +516,7 @@ fn create_multisampled_framebuffer(
     let multisampled_texture_extent = wgpu::Extent3d {
         width: sc_desc.width,
         height: sc_desc.height,
-        depth: 1,
+        depth_or_array_layers: 1,
     };
     let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
         label: None,
