@@ -1,6 +1,6 @@
 # ampli-Fe
 
-<a href="https://studiorack.github.io/studiorack-site/plugins/studiorack/ampli-fe/ampli-fe" alt="Download on StudioRack">
+<a href="https://studiorack.github.io/studiorack-site/effects/studiorack/ampli-fe/ampli-fe" alt="Download on StudioRack">
     <img src="https://img.shields.io/badge/StudioRack-v0.1.0-brightgreen?style=flat" />
 </a>
 
