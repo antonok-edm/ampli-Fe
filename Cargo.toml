@@ -1,6 +1,6 @@
 [package]
 name = "ampli-fe"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Anton Lazarev <https://antonok.com>"]
 edition = "2018"
 resolver = "2"
