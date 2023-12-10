@@ -4,12 +4,14 @@
     <img src="https://img.shields.io/badge/StudioRack-v0.1.1-brightgreen?style=flat" />
 </a>
 
-ampli-Fe is a fully cross-platform VST2 plugin written in Rust.
+ampli-Fe is a fully cross-platform [VST2](https://en.wikipedia.org/wiki/Virtual_Studio_Technology) plugin written in Rust.
 It works on Linux, macOS, Windows, without any conditionally compiled code.
 
 It features a fully-customized editor UI with an interactive knob and corresponding numerical value readout.
 
-ampli-Fe's code is well-documented and freely licensed - feel free to use it as a starting point for your next VST2 plugin!
+ampli-Fe's code is well-documented and freely licensed - feel free to use it as a starting point for your next VST2 plugin*!
+
+_*Please note that VST2 has been [deprecated](https://helpcenter.steinberg.de/hc/en-us/articles/4409561018258-VST-2-Discontinued). It may continue to work in some DAWs, but it is no longer recommended for new audio plugin development._
 
 ## Functionality
 
